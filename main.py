@@ -1,4 +1,5 @@
 import argparse
+from time import sleep
 from virtual_machines import virtual_machines
 from hosts import get_conn, wake
 
@@ -15,5 +16,8 @@ if __name__ == "__main__":
 
     vm_host = virtual_machine_spec["host"]
     wake(vm_host)
-    host_conn = get_conn(vm_host)
-    host_conn.run("hostname",)
+    with get_conn("jump").forward_local(3389, remote_host=virtual_machine_spec["wireguard"]):
+        host_conn = get_conn(vm_host)
+        host_conn.run(virtual_machine_spec["cmd"], asynchronous=True)
+        while True:
+            sleep(10)

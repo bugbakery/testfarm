@@ -1,6 +1,5 @@
 from fabric import Connection
 import invoke
-from functools import lru_cache
 from time import time
 from tqdm import tqdm
 
@@ -29,9 +28,15 @@ hosts = {
     }
 }
 
-@lru_cache
+cache = {}
 def get_conn(host):
-    host = hosts[host]
+    if isinstance(host, str):
+        global cache
+        if host in cache:
+            return cache[host]
+        hostname = host
+        host = hosts[host]
+        host['name'] = hostname
     args = {}
     if "public" in host:
         args["host"] = host["public"]
@@ -42,7 +47,10 @@ def get_conn(host):
         args["user"] = host["user"]
     if "password" in host:
         args["connect_kwargs"] = dict(password=host["password"])
-    return Connection(**args)
+    conn = Connection(**args)
+    if 'name' in host:
+        cache[host['name']] = conn
+    return conn
 
 
 def is_reachable(host):
