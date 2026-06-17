@@ -15,6 +15,9 @@ hosts = {
         "user": "admin",
     },
     "desktop-router": {
+        "wireguard": "10.100.1.1"
+    },
+    "desktop-router-wake-on-lan": {
         "wireguard": "10.100.1.2"
     },
     "desktop-intel": {
@@ -58,7 +61,7 @@ def wake(host):
         print(f"-> host {host} is already running")
     else:
         print(f"-> booting host {host}...")
-        cmd = f"curl -X POST http://{hosts["desktop-router"]["wireguard"]}/wake/{hosts[host]["mac"]}"
+        cmd = f"curl -X POST http://{hosts["desktop-router-wake-on-lan"]["wireguard"]}/wake/{hosts[host]["mac"]}"
         get_conn("jump").run(cmd, hide="both")
         start_time = time()
         duration = hosts[host].get("boot_time", None)
