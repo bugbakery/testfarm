@@ -75,7 +75,10 @@ def wake(host):
         duration = hosts[host].get("boot_time", None)
         progress_bar = tqdm(total=duration, bar_format="{bar}{elapsed}<{remaining}")
         while not is_reachable(host):
-            progress_bar.update(time() - start_time - progress_bar.n)
+            elapsed = time() - start_time
+            if elapsed > progress_bar.total:
+                progress_bar.total = elapsed
+            progress_bar.update(elapsed - progress_bar.n)
         progress_bar.close()
         duration = time() - start_time
         print(f"booting took {duration:.01f}s")
