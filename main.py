@@ -1,7 +1,14 @@
 import argparse
+import os
 from time import sleep
+from qemu import QemuVm
 from virtual_machines import virtual_machines
 from hosts import get_conn, wake
+
+def gen_mac_address():
+    r = os.urandom(3)
+    return f"52:54:00:{r.hex(sep=':')}" # use qemu prefix
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -17,7 +24,14 @@ if __name__ == "__main__":
     vm_host = virtual_machine_spec["host"]
     wake(vm_host)
     with get_conn("jump").forward_local(3389, remote_host=virtual_machine_spec["wireguard"]):
+        vm_config = virtual_machine_spec["vm_config"]
+        mac_address = gen_mac_address()
+        vm = QemuVm(**vm_config, memory="6G", cores=4, ephemeral=True, mac_address=mac_address)
+        cmd = vm.build_cmd()
+
         host_conn = get_conn(vm_host)
-        host_conn.run(virtual_machine_spec["cmd"], asynchronous=True)
+
+        print(f"Running command: {cmd}")
+        host_conn.run(cmd, asynchronous=True)
         while True:
             sleep(10)
