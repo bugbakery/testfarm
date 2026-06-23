@@ -93,6 +93,25 @@ class ErrorCatchingArgumentParser(argparse.ArgumentParser):
             raise ArgparseNoopException()
 
 
+def is_reachable(cfg, verbose: bool = False):
+    try:
+        if "public" in cfg:
+            return invoke.run(
+                f"ping -c1 -W0.5 {cfg['public']}", hide=None if verbose else "out"
+            ).ok
+        else:
+            return (
+                get_conn("jump")
+                .run(
+                    f"ping -c1 -W0.5 {cfg['wireguard']}",
+                    hide=None if verbose else "out",
+                )
+                .ok
+            )
+    except invoke.exceptions.UnexpectedExit:
+        return False
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         prog="testfarm",
@@ -104,6 +123,8 @@ if __name__ == "__main__":
     parser.add_argument("--no-rdp", action="store_true")
     parser.add_argument("--no-ssh", action="store_true")
     parser.add_argument("--edit-base-image", action="store_true")
+    parser.add_argument("--skip-boot-check", action="store_true")
+    parser.add_argument("-c", "--command")
     args = parser.parse_args()
     virtual_machine_spec = virtual_machines[args.vm]
     verbose = args.verbose
@@ -137,6 +158,10 @@ if __name__ == "__main__":
             pty=True,  # needed, so the command is killed properly when exiting
         )
         with ExitStack() as stack:
+            if not args.skip_boot_check:
+                print("-> Waiting for VM to boot...")
+                while not is_reachable(virtual_machine_spec, verbose=verbose):
+                    pass
 
             ssh_port = find_next_free_port(3022)
             stack.enter_context(
