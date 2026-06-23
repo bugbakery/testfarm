@@ -1,9 +1,12 @@
 import argparse
 from contextlib import ExitStack
+from io import StringIO
 import os
 import sys
 from time import sleep
+from typing import IO, TextIO
 
+from fabric import Connection
 import invoke
 from qemu import QemuVm
 from virtual_machines import virtual_machines
@@ -38,6 +41,7 @@ if __name__ == "__main__":
     parser.add_argument("--vnc", action="store_true")
     parser.add_argument("--no-rdp", action="store_true")
     parser.add_argument("--no-ssh", action="store_true")
+    parser.add_argument("--edit-base-image", action="store_true")
     args = parser.parse_args()
     virtual_machine_spec = virtual_machines[args.vm]
     verbose = args.verbose
@@ -52,7 +56,7 @@ if __name__ == "__main__":
         **vm_config,
         memory="6G",
         cores=4,
-        ephemeral=True,
+        ephemeral=not args.edit_base_image,
         vnc_display=0 if args.vnc else None,
     )
 
