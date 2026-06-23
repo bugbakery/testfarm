@@ -1,10 +1,6 @@
 import argparse
 from contextlib import ExitStack
-from io import StringIO
-import os
 import sys
-from time import sleep
-from typing import IO, TextIO
 
 from fabric import Connection
 import invoke
@@ -29,6 +25,72 @@ def find_next_free_port(port: int) -> int:
     while is_port_in_use(p):
         p += 1
     return p
+
+
+def open_rdp(virtual_machine_spec):
+    if sys.platform == "darwin":
+        print("-> Waiting for RDP to become available...")
+        host_conn.run(
+            f"""
+            while ! nc -z {virtual_machine_spec["wireguard"]} 3389; do
+            sleep 0.5
+            done
+        """,
+            hide=None if verbose else "both",
+        )
+        print("-> Launching RDP client... (password is 'admin')")
+        invoke.run(
+            f"open 'rdp://full%20address=s%3Alocalhost%3A{rdp_port}&username=s%3Abugbakery&use%20redirection%20server%20name=i%3A1'",
+            hide="out",
+        )
+    else:
+        print("-> Auto open RDP is currently only supported on macOS")
+
+
+def open_ssh(virtual_machine_spec):
+    class StdinWithCR:
+        def read(self, i):
+            a = sys.stdin.read(i)
+            if a == "\n":
+                return "\r"
+            return a
+
+        def __getattr__(self, name):
+            return getattr(sys.stdin, name)
+
+    print("-> Opening ssh session...")
+    conn = Connection(
+        host=virtual_machine_spec["wireguard"],
+        gateway=get_conn("jump"),
+        user="admin",
+        connect_kwargs={"password": "admin"},
+    )
+
+    if virtual_machine_spec["os"] == "windows":
+        conn.run(
+            "set TERM=xterm-256color && cmd.exe",
+            pty=True,
+            in_stream=StdinWithCR(),
+        )
+    else:
+        conn.shell()
+
+
+class ArgparseNoopException(Exception):
+    pass
+
+class ArgparseArgumentException(Exception):
+    pass
+
+class ErrorCatchingArgumentParser(argparse.ArgumentParser):
+    """
+    Sadly argparses exit_on_error option is buggy at the moment, so we need this
+    """
+    def exit(self, status=0, message=None):
+        if status != 0:
+            raise ArgparseArgumentException(message)
+        else:
+            raise ArgparseNoopException()
 
 
 if __name__ == "__main__":
@@ -62,89 +124,94 @@ if __name__ == "__main__":
 
     host_conn = get_conn(vm_host)
 
-    with ExitStack() as stack:
+    try:
         cmd = vm.build_cmd()
         if verbose:
             print(f"Running command: {cmd}")
-        stack.enter_context(
-            host_conn.sudo(
-                cmd,
-                password=host_conn.connect_kwargs["password"],
-                asynchronous=True,
-                out_stream=sys.stdout if verbose else None,
-                err_stream=sys.stderr if verbose else None,
-                pty=True,  # needed, so the command is killed properly when exiting
-            )
+        vm_cmd_result = host_conn.sudo(
+            cmd,
+            password=host_conn.connect_kwargs["password"],
+            asynchronous=True,
+            out_stream=sys.stdout if verbose else None,
+            err_stream=sys.stderr if verbose else None,
+            pty=True,  # needed, so the command is killed properly when exiting
         )
+        with ExitStack() as stack:
 
-        ssh_port = find_next_free_port(3022)
-        stack.enter_context(
-            get_conn("jump").forward_local(
-                ssh_port, remote_host=virtual_machine_spec["wireguard"], remote_port=22
-            )
-        )
-        print(f"-> SSH proxied on localhost:{ssh_port}")
-
-        if args.vnc:
-            vnc_port = find_next_free_port(5900)
-            stack.enter_context(host_conn.forward_local(vnc_port, remote_port=5900))
-            print(f"-> VNC proxied on localhost:{vnc_port}")
-
-        if not args.no_rdp:
-            rdp_port = find_next_free_port(3389)
+            ssh_port = find_next_free_port(3022)
             stack.enter_context(
                 get_conn("jump").forward_local(
-                    rdp_port,
-                    remote_port=3389,
-                    remote_host=virtual_machine_spec["wireguard"],
+                    ssh_port, remote_host=virtual_machine_spec["wireguard"], remote_port=22
                 )
             )
-            print(f"-> RDP proxied on localhost:{rdp_port}")
-            if sys.platform == "darwin":
-                print("-> Waiting for RDP to become available...")
-                host_conn.run(
-                    f"""
-                    while ! nc -z {virtual_machine_spec["wireguard"]} 3389; do
-                    sleep 0.5
-                    done
-                """,
-                    hide=None if verbose else "both",
+            print(f"-> SSH proxied on localhost:{ssh_port}")
+
+            if args.vnc:
+                vnc_port = find_next_free_port(5900)
+                stack.enter_context(host_conn.forward_local(vnc_port, remote_port=5900))
+                print(f"-> VNC proxied on localhost:{vnc_port}")
+
+            if not args.no_rdp:
+                rdp_port = find_next_free_port(3389)
+                stack.enter_context(
+                    get_conn("jump").forward_local(
+                        rdp_port,
+                        remote_port=3389,
+                        remote_host=virtual_machine_spec["wireguard"],
+                    )
                 )
-                print("-> Launching RDP client... (password is 'admin')")
-                invoke.run(
-                    f"open 'rdp://full%20address=s%3Alocalhost%3A{rdp_port}&username=s%3Abugbakery&use%20redirection%20server%20name=i%3A1'",
-                    hide="out",
+                print(f"-> RDP proxied on localhost:{rdp_port}")
+
+            if args.command:
+                conn = Connection(
+                    host=virtual_machine_spec["wireguard"],
+                    gateway=get_conn("jump"),
+                    user="admin",
+                    connect_kwargs={"password": "admin"},
                 )
-            else:
-                print("-> Auto open RDP is currently only supported on macOS")
+                conn.run(args.command)
+                exit(0)
 
-        class StdinWithCR:
-            def read(self, i):
-                a = sys.stdin.read(i)
-                if a == "\n":
-                    return "\r"
-                return a
+            while True:
+                inp = input("vm repl > ")
+                cmd_parts = inp.split(" ")
+                cmd_name = cmd_parts[0]
+                cmd_args = cmd_parts[1:]
 
-            def __getattr__(self, name):
-                return getattr(sys.stdin, name)
+                if cmd_name == "rdp":
+                    open_rdp(virtual_machine_spec)
+                elif cmd_name == "ssh":
+                    open_ssh(virtual_machine_spec)
+                elif cmd_name == "expose":
+                    try:
+                        cmd_parser = ErrorCatchingArgumentParser(
+                            prog="expose",
+                        )
+                        cmd_parser.add_argument("local_port", type=int)
+                        cmd_parser.add_argument("remote_port", type=int, nargs="?")
+                        parsed_args = cmd_parser.parse_args(cmd_args)
 
-        if not args.no_ssh:
-            print("-> Opening ssh session...")
-            conn = Connection(
-                host=virtual_machine_spec["wireguard"],
-                gateway=get_conn("jump"),
-                user="admin",
-                connect_kwargs={"password": "admin"},
-            )
+                        conn = Connection(
+                            host=virtual_machine_spec["wireguard"],
+                            gateway=get_conn("jump"),
+                            user="admin",
+                            connect_kwargs={"password": "admin"},
+                        )
 
-            if virtual_machine_spec["os"] == "windows":
-                conn.run(
-                    "set TERM=xterm-256color && cmd.exe",
-                    pty=True,
-                    in_stream=StdinWithCR(),
-                )
-            else:
-                conn.shell()
+                        stack.enter_context(
+                            conn.forward_remote(
+                                local_port=parsed_args.local_port,
+                                remote_port=parsed_args.remote_port
+                                if parsed_args.remote_port
+                                else parsed_args.local_port,
+                            )
+                        )
+                    except ArgparseArgumentException as e:
+                        print(e)
+                    except ArgparseNoopException:
+                        pass
 
-        while True:
-            sleep(10)
+                # sleep(10)
+    finally:
+        print("-> Stopping vm...")
+        vm_cmd_result.runner.kill()
