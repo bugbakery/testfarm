@@ -19,7 +19,7 @@ class QemuVm:
         ephemeral: bool,
         mac_address: str,
         vnc_display: int | None = None,
-        pci_devices: list[PcieDevicePassthrough],
+        pci_devices: list[PcieDevicePassthrough] = [],
     ) -> None:
         self.cpu_args = cpu_args
         self.memory = memory
@@ -34,6 +34,7 @@ class QemuVm:
         cmd = "qemu-system-x86_64-uefi"
         cmd += " -enable-kvm"
         cmd += " -M q35,usb=on,acpi=on,hpet=off"
+        cmd += f" -drive file={self.harddrive_file}"
         cmd += " -monitor stdio"
         cmd += " -device usb-tablet"
         cmd += " -device virtio-serial"
@@ -49,8 +50,8 @@ class QemuVm:
         if self.ephemeral:
             cmd += " -snapshot"
 
-        if self.vnc_display:
-            cmd += f" -display vnc=:${self.vnc_display},password=on,lossy=on"
+        if self.vnc_display is not None:
+            cmd += f" -display vnc=:{self.vnc_display},password=off,lossy=on"
         else:
             cmd += " -display none"
 
