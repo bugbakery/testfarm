@@ -96,10 +96,10 @@ def wait_for_port(host, port: int):
             while ! nc -z {host["public"]} {port}; do
                 sleep 0.5
             done
-        """, hide="out").ok
+        """, hide="both").ok
     else:
         return get_conn("jump").run(f"""
             while ! nc -z {host["wireguard"]} {port}; do
                 sleep 0.5
             done
-        """, hide="out").ok
+        """, hide="both").ok
