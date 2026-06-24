@@ -8,17 +8,18 @@ import invoke
 from hosts import get_conn, wait_for_port
 
 
+class StdinWithCR:
+    def read(self, i):
+        a = sys.stdin.read(i)
+        if a == "\n":
+            return "\r"
+        return a
+
+    def __getattr__(self, name):
+        return getattr(sys.stdin, name)
+
+
 def ssh_shell(virtual_machine_spec):
-    class StdinWithCR:
-        def read(self, i):
-            a = sys.stdin.read(i)
-            if a == "\n":
-                return "\r"
-            return a
-
-        def __getattr__(self, name):
-            return getattr(sys.stdin, name)
-
     print("-> Waiting for SSH to become available...")
     wait_for_port(virtual_machine_spec, 22)
 
@@ -30,9 +31,10 @@ def ssh_shell(virtual_machine_spec):
             "set TERM=xterm-256color && cmd.exe",
             pty=True,
             in_stream=StdinWithCR(),
+            warn=True,
         )
     else:
-        conn.shell()
+        conn.run("/bin/bash", pty=True, env={"TERM": "xterm-256color"}, warn=True)
 
 
 def open_rdp(virtual_machine_spec: dict, rdp_port: int, verbose: bool):
@@ -52,7 +54,7 @@ def open_rdp(virtual_machine_spec: dict, rdp_port: int, verbose: bool):
 
 
 class Repl(cmd.Cmd):
-    intro = 'Welcome to the testfarm vm shell.   Type help or ? to list commands.\n'
+    intro = "Welcome to the testfarm vm shell.   Type help or ? to list commands.\n"
     prompt = "(vm) "
 
     def __init__(
