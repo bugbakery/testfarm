@@ -54,7 +54,9 @@ def get_conn(host):
 
 
 def is_reachable(host):
-    host = hosts[host]
+    if isinstance(host, str):
+        host = hosts[host]
+
     try:
         if "public" in host:
             return invoke.run(f"ping -c1 -W0.5 {host['public']}", hide="out").ok
@@ -83,3 +85,21 @@ def wake(host):
         duration = time() - start_time
         print(f"booting took {duration:.01f}s")
     return
+
+
+def wait_for_port(host, port: int):
+    if isinstance(host, str):
+        host = hosts[host]
+
+    if "public" in host:
+        return invoke.run(f"""
+            while ! nc -z {host["public"]} {port}; do
+                sleep 0.5
+            done
+        """, hide="out").ok
+    else:
+        return get_conn("jump").run(f"""
+            while ! nc -z {host["wireguard"]} {port}; do
+                sleep 0.5
+            done
+        """, hide="out").ok

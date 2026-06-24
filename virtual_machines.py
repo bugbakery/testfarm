@@ -15,6 +15,8 @@ virtual_machines = {
     "win11+intel": {
         "host": "desktop-intel",
         "os": "windows",
+        "user": "admin",
+        "password": "admin",
         "vm_config": {
             "harddrive_file": "win11-nvidia-main.qcow2",
             "cpu_args": [
@@ -37,6 +39,8 @@ virtual_machines = {
     "ubuntu+intel": {
         "host": "desktop-intel",
         "os": "linux",
+        "user": "bugbakery",
+        "password": "admin",
         "vm_config": {
             "harddrive_file": "ubuntu-base.qcow2",
             "cpu_args": [
