@@ -106,9 +106,12 @@ class Repl(cmd.Cmd):
             traceback.print_exc()
 
     def do_ssh(self, arg: str):
-        "spawn ssh session"
+        "run single command via ssh or spawn interactive ssh session: ssh [cmd]"
         try:
-            ssh_shell(self.virtual_machine_spec)
+            if len(arg) > 0:
+                get_conn(self.virtual_machine_spec).run(arg, warn=True)
+            else:
+                ssh_shell(self.virtual_machine_spec)
         except Exception:
             traceback.print_exc()
 
