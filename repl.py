@@ -1,9 +1,14 @@
 import cmd
 from contextlib import ExitStack
+import errno
+import glob
+import os
+from pathlib import Path
 import sys
 import traceback
 
 import invoke
+from tqdm import tqdm
 
 from hosts import get_conn, wait_for_port
 
@@ -104,5 +109,66 @@ class Repl(cmd.Cmd):
         "spawn ssh session"
         try:
             ssh_shell(self.virtual_machine_spec)
+        except Exception:
+            traceback.print_exc()
+
+    def do_put(self, arg: str):
+        "copy file(s) to vm: put [-r] local_path remote_path"
+
+        args = arg.split()
+        recursive = "-r" in args
+        positional_args = [arg for arg in args if not arg.startswith("-")]
+
+        try:
+            sftp = get_conn(self.virtual_machine_spec).sftp()
+
+            def dir_exists(path: Path | str):
+                if isinstance(path, str):
+                    path = Path(path)
+
+                old_cwd = sftp.getcwd()
+                try:
+                    sftp.chdir(str(path))
+                    return True
+                except IOError as err:
+                    if err.errno == errno.ENOENT:
+                        return False
+                    raise err
+                finally:
+                    sftp.chdir(old_cwd)
+
+            def mkdir(path: Path | str):
+                if isinstance(path, str):
+                    path = Path(path)
+
+                if not dir_exists(path.parent):
+                    mkdir(path.parent)
+
+                if not dir_exists(path):
+                    sftp.mkdir(str(path))
+
+            if  not dir_exists(positional_args[1]):
+                try:
+                    mkdir(Path(positional_args[1]))
+                except IOError as err:
+                    if err.errno == errno.EACCES:
+                        print(f"Permission denied: {positional_args[1]}")
+                        return
+                    raise err
+
+            if recursive:
+                files = glob.glob("**", root_dir=positional_args[0], recursive=recursive, include_hidden=True)
+
+                for file in tqdm(files, unit="files"):
+                    local_path = Path(positional_args[0]) / file
+                    target = Path(positional_args[1]) / file
+
+                    if os.path.isdir(local_path):
+                        if not dir_exists(target):
+                            mkdir(target)
+                    else:
+                        sftp.put(local_path, str(target), confirm=False)
+            else:
+                sftp.put(positional_args[0], positional_args[1])
         except Exception:
             traceback.print_exc()
