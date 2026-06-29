@@ -119,6 +119,19 @@ class Repl(cmd.Cmd):
         recursive = "-r" in args
         positional_args = [arg for arg in args if not arg.startswith("-")]
 
+        def remote_home():
+            conn = get_conn(self.virtual_machine_spec)
+            if self.virtual_machine_spec["os"] == "windows":
+                return Path(conn.run("echo %HOME%", hide="both").stdout.strip().replace("\\","/"))
+            else:
+                return Path(conn.run("echo -n $HOME", hide="both").stdout)
+
+        arg_local = positional_args[0]
+
+        arg_remote = positional_args[1]
+        if arg_remote.startswith("~/"):
+            arg_remote = remote_home() / arg_remote.removeprefix("~/")
+
         try:
             sftp = get_conn(self.virtual_machine_spec).sftp()
 
@@ -147,21 +160,21 @@ class Repl(cmd.Cmd):
                 if not dir_exists(path):
                     sftp.mkdir(str(path))
 
-            if  not dir_exists(positional_args[1]):
+            if  not dir_exists(arg_remote):
                 try:
-                    mkdir(Path(positional_args[1]))
+                    mkdir(Path(arg_remote))
                 except IOError as err:
                     if err.errno == errno.EACCES:
-                        print(f"Permission denied: {positional_args[1]}")
+                        print(f"Permission denied: {arg_remote}")
                         return
                     raise err
 
             if recursive:
-                files = glob.glob("**", root_dir=positional_args[0], recursive=recursive, include_hidden=True)
+                files = glob.glob("**", root_dir=arg_local, recursive=recursive, include_hidden=True)
 
                 for file in tqdm(files, unit="files"):
-                    local_path = Path(positional_args[0]) / file
-                    target = Path(positional_args[1]) / file
+                    local_path = Path(arg_local) / file
+                    target = Path(arg_remote) / file
 
                     if os.path.isdir(local_path):
                         if not dir_exists(target):
@@ -169,6 +182,6 @@ class Repl(cmd.Cmd):
                     else:
                         sftp.put(local_path, str(target), confirm=False)
             else:
-                sftp.put(positional_args[0], positional_args[1])
+                sftp.put(arg_local, str(arg_remote))
         except Exception:
             traceback.print_exc()
