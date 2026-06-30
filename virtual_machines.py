@@ -11,10 +11,13 @@ intel_devices = {
         PcieDevicePassthrough(host_address="81:00.1"),  # gtx-780 audio
     ],
     "igpu": [
+        # params from https://github.com/LongQT-sea/intel-igpu-passthru#other-linux-distributions-qemukvm
         PcieDevicePassthrough(
             host_address="00:02.0",
-            x_vga=True,
-            multifunction=True,
+            x_igd_lpc=True,
+            id="hostpci0",
+            bus="pci.0",
+            addr="2.0",
             romfile="ARL_MTL_GOPv22_igd.rom",
         )
     ],
@@ -69,7 +72,7 @@ virtual_machines = {
                 "hv_passthrough",
                 "-hypervisor",
                 "level=35",
-                "+vmx"
+                "+vmx",
                 "guest-phys-bits=39",
             ],
         },
