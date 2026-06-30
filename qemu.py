@@ -41,7 +41,10 @@ class QemuVm:
     def build_cmd(self):
         cmd = "qemu-system-x86_64-uefi"
         cmd += " -enable-kvm"
+
+        # machine type pc is needed for propper pci configuration when using iGPUs (https://github.com/LongQT-sea/intel-igpu-passthru#other-linux-distributions-qemukvm)
         cmd += " -M pc,usb=on,acpi=on,hpet=off"
+
         cmd += f" -drive file={self.harddrive_file}"
         cmd += " -monitor stdio"
 
@@ -50,31 +53,22 @@ class QemuVm:
 
             if d.x_vga:
                 device_arg += ",x-vga=on"
-
             if d.x_igd_opregion:
-                device_arg += ',x-igd-opregion=on'
-
+                device_arg += ",x-igd-opregion=on"
             if d.x_igd_lpc:
-                device_arg += ',x-igd-lpc=on'
-
+                device_arg += ",x-igd-lpc=on"
             if d.multifunction:
                 device_arg += ",multifunction=on"
-
             if d.id:
                 device_arg += f",id={d.id}"
-
             if d.bus:
                 device_arg += f",bus={d.bus}"
-
             if d.addr:
                 device_arg += f",addr={d.addr}"
-
             if d.romfile:
                 device_arg += f",romfile={d.romfile}"
 
             cmd += device_arg
-
-
 
         cmd += " -device usb-tablet"
         cmd += " -device virtio-serial"
