@@ -39,6 +39,22 @@ intel_devices = {
             addr="0b.0",
         )
     ],
+    "wip-vega56": [
+        # gpu
+        PcieDevicePassthrough(
+            host_address="04:00.0",
+            multifunction=True,
+            bus="pci.0",
+            addr="04.0",
+            romfile="Sapphire.RXVega56.8192.180315.rom",
+        ),
+        # audio
+        PcieDevicePassthrough(
+            host_address="04:00.1",
+            bus="pci.0",
+            addr="04.1",
+        ),
+    ],
 }
 
 

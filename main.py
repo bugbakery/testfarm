@@ -30,7 +30,7 @@ if __name__ == "__main__":
     print(f"Starting Virtual Machine {args.vm}")
 
     vm_host = virtual_machine_spec["host"]
-    wake(vm_host) 
+    wake(vm_host)
 
     vm_config = virtual_machine_spec["vm_config"]
 
