@@ -30,14 +30,16 @@ if __name__ == "__main__":
     print(f"Starting Virtual Machine {args.vm}")
 
     vm_host = virtual_machine_spec["host"]
-    wake(vm_host)
+    wake(vm_host) 
 
     vm_config = virtual_machine_spec["vm_config"]
 
-    if args.devices:
-        devices = sum([virtual_machine_spec["available_devices"][dev] for dev in args.devices.split(',')], [])
-    else:
+    if args.devices is None:
         devices = []
+    elif args.devices == "all":
+        devices = sum(virtual_machine_spec["available_devices"].values(), [])
+    else:
+        devices = sum([virtual_machine_spec["available_devices"][dev] for dev in args.devices.split(',')], [])
 
     host_conn = get_conn(vm_host)
 

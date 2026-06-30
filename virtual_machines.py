@@ -3,13 +3,8 @@ from contextlib import contextmanager
 from qemu import PcieDevicePassthrough
 from resources import acquire_resource_lock, release_resource_lock
 
+# use fixed pci addresses on all devices to prevent collisions when other devices are attached before the igpu
 intel_devices = {
-    "gtx780": [
-        PcieDevicePassthrough(
-            host_address="81:00.0", x_vga=True, multifunction=True
-        ),  # gtx-780 gpu
-        PcieDevicePassthrough(host_address="81:00.1"),  # gtx-780 audio
-    ],
     "igpu": [
         # params from https://github.com/LongQT-sea/intel-igpu-passthru#other-linux-distributions-qemukvm
         PcieDevicePassthrough(
@@ -17,11 +12,33 @@ intel_devices = {
             x_igd_lpc=True,
             id="hostpci0",
             bus="pci.0",
-            addr="2.0",
+            addr="02.0", # has to use this address to prevent errors
             romfile="ARL_MTL_GOPv22_igd.rom",
         )
     ],
-    "npu": [PcieDevicePassthrough(host_address="00:0b.0")],
+    "gtx780": [
+        # gpu
+        PcieDevicePassthrough(
+            host_address="81:00.0",
+            x_vga=True,
+            multifunction=True,
+            bus="pci.0",
+            addr="03.0",
+        ),
+        # audio
+        PcieDevicePassthrough(
+            host_address="81:00.1",
+            bus="pci.0",
+            addr="03.1",
+        ),
+    ],
+    "npu": [
+        PcieDevicePassthrough(
+            host_address="00:0b.0",
+            bus="pci.0",
+            addr="0b.0",
+        )
+    ],
 }
 
 
@@ -73,7 +90,7 @@ virtual_machines = {
                 "-hypervisor",
                 "level=35",
                 "+vmx",
-                "guest-phys-bits=39",
+                "guest-phys-bits=41",
             ],
         },
     },
@@ -87,7 +104,7 @@ virtual_machines = {
             "harddrive_file": "ubuntu-base.qcow2",
             "cpu_args": [
                 "host",
-                "guest-phys-bits=39",
+                "guest-phys-bits=41",
             ],
         },
     },
