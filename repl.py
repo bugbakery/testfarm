@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import sys
 import traceback
+from urllib.parse import quote, urlencode
 
 import invoke
 from tqdm import tqdm
@@ -50,8 +51,15 @@ def open_rdp(virtual_machine_spec: dict, rdp_port: int, verbose: bool):
         password = virtual_machine_spec["password"]
         user = virtual_machine_spec["user"]
         print(f"-> Launching RDP client... (password is '{password}')")
+
+        args = {
+            "full address": f"s:localhost:{rdp_port}",
+            "username": f"s:{user}",
+            "use redirection server name": "i:1", # fixes connection to ubuntu rdp server
+            "screen mode id": "i:1" # windowed mode
+        }
         invoke.run(
-            f"open 'rdp://full%20address=s%3Alocalhost%3A{rdp_port}&username=s%3A{user}&use%20redirection%20server%20name=i%3A1'",
+            f"open 'rdp://{urlencode(args, quote_via=quote)}'",
             hide="out",
         )
     else:
