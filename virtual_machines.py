@@ -1,4 +1,7 @@
+from contextlib import contextmanager
+
 from qemu import PcieDevicePassthrough
+from resources import acquire_resource_lock, release_resource_lock
 
 intel_devices = {
     "gtx780": [
@@ -18,12 +21,44 @@ intel_devices = {
     "npu": [PcieDevicePassthrough(host_address="00:0b.0")],
 }
 
+
+mac_pool = {
+    "52:54:00:00:00:01": "10.100.1.241",
+    "52:54:00:00:00:02": "10.100.1.240",
+    "52:54:00:00:00:03": "10.100.1.239",
+    "52:54:00:00:00:04": "10.100.1.238",
+    "52:54:00:00:00:05": "10.100.1.237",
+    "52:54:00:00:00:06": "10.100.1.236",
+}
+
+
+def _get_mac_address_from_pool(host: str):
+    for mac, ip in mac_pool.items():
+        try:
+            acquire_resource_lock(host, mac)
+            return mac, ip
+        except Exception:
+            pass
+
+    raise Exception("Could not get mac address from pool")
+
+
+@contextmanager
+def use_mac_address_from_pool(host: str):
+    mac, ip = _get_mac_address_from_pool(host)
+    try:
+        yield mac, ip
+    finally:
+        release_resource_lock(host, mac)
+
+
 virtual_machines = {
-    "win11+intel/all": {
+    "win11+intel": {
         "host": "desktop-intel",
         "os": "windows",
         "user": "admin",
         "password": "admin",
+        "available_devices": intel_devices,
         "vm_config": {
             "harddrive_file": "win11-nvidia-main.qcow2",
             "cpu_args": [
@@ -36,82 +71,14 @@ virtual_machines = {
                 "level=35",
                 "+vmx,guest-phys-bits=39",
             ],
-            "pci_devices": sum(intel_devices.values(), []),
-            "mac_address": "52:54:00:00:00:01",
         },
-        "wireguard": "10.100.1.241",
     },
-    "ubuntu+intel/all": {
+    "ubuntu+intel": {
         "host": "desktop-intel",
         "os": "linux",
         "user": "bugbakery",
         "password": "admin",
-        "vm_config": {
-            "harddrive_file": "ubuntu-base.qcow2",
-            "cpu_args": [
-                "host",
-                # hide kvm, to workaround nvidia driver blocking VMs
-                "kvm=off",
-                "hv_vendor_id=0",
-                "hv_passthrough",
-                "-hypervisor",
-                "level=35",
-                "+vmx,guest-phys-bits=39",
-            ],
-            "pci_devices": sum(intel_devices.values(), []),
-            "mac_address": "52:54:00:00:00:02",
-        },
-        "wireguard": "10.100.1.240",
-    },
-    "win11+intel/nvidia": {
-        "host": "desktop-intel",
-        "os": "windows",
-        "user": "admin",
-        "password": "admin",
-        "vm_config": {
-            "harddrive_file": "win11-nvidia-main.qcow2",
-            "cpu_args": [
-                "host",
-                # hide kvm, to workaround nvidia driver blocking VMs
-                "kvm=off",
-                "hv_vendor_id=0",
-                "hv_passthrough",
-                "-hypervisor",
-                "level=35",
-                "+vmx,guest-phys-bits=39",
-            ],
-            "pci_devices": intel_devices["gtx780"],
-            "mac_address": "52:54:00:00:00:03",
-        },
-        "wireguard": "10.100.1.239",
-    },
-    "ubuntu+intel/nvidia": {
-        "host": "desktop-intel",
-        "os": "linux",
-        "user": "bugbakery",
-        "password": "admin",
-        "vm_config": {
-            "harddrive_file": "ubuntu-base.qcow2",
-            "cpu_args": [
-                "host",
-                # hide kvm, to workaround nvidia driver blocking VMs
-                "kvm=off",
-                "hv_vendor_id=0",
-                "hv_passthrough",
-                "-hypervisor",
-                "level=35",
-                "+vmx,guest-phys-bits=39",
-            ],
-            "pci_devices": intel_devices["gtx780"],
-            "mac_address": "52:54:00:00:00:04",
-        },
-        "wireguard": "10.100.1.238",
-    },
-    "ubuntu+intel/npu": {
-        "host": "desktop-intel",
-        "os": "linux",
-        "user": "bugbakery",
-        "password": "admin",
+        "available_devices": intel_devices,
         "vm_config": {
             "harddrive_file": "ubuntu-base.qcow2",
             "cpu_args": [
@@ -119,36 +86,11 @@ virtual_machines = {
                 # hide kvm, to workaround nvidia driver blocking VMs
                 # "kvm=off",
                 # "hv_vendor_id=0",
-                "hv_passthrough",
-                "-hypervisor",
-                "level=35",
+                # "hv_passthrough",
+                # "-hypervisor",
+                # "level=35",
                 "+vmx,guest-phys-bits=39",
             ],
-            "pci_devices": intel_devices["npu"],
-            "mac_address": "52:54:00:00:00:05",
         },
-        "wireguard": "10.100.1.237",
-    },
-    "win11+intel/igpu": {
-        "host": "desktop-intel",
-        "os": "windows",
-        "user": "admin",
-        "password": "admin",
-        "vm_config": {
-            "harddrive_file": "win11-nvidia-main.qcow2",
-            "cpu_args": [
-                "host",
-                # hide kvm, to workaround nvidia driver blocking VMs
-                "kvm=off",
-                "hv_vendor_id=0",
-                "hv_passthrough",
-                "-hypervisor",
-                "level=35",
-                "+vmx,guest-phys-bits=39",
-            ],
-            "pci_devices": intel_devices["igpu"],
-            "mac_address": "52:54:00:00:00:06",
-        },
-        "wireguard": "10.100.1.236",
     },
 }
