@@ -24,7 +24,7 @@ hosts = {
         "mac": "34:5a:60:05:0b:85",
         "user": "admin",
         "password": "admin",
-        "boot_time": 41,
+        "boot_time": 38,
     }
 }
 
