@@ -113,5 +113,4 @@ if __name__ == "__main__":
 
     finally:
         print("-> Stopping vm...")
-        if vm_cmd_result:
-            vm_cmd_result.runner.kill()
+        vm_cmd_result.runner.kill()

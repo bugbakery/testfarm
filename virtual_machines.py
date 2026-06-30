@@ -69,7 +69,8 @@ virtual_machines = {
                 "hv_passthrough",
                 "-hypervisor",
                 "level=35",
-                "+vmx,guest-phys-bits=39",
+                "+vmx"
+                "guest-phys-bits=39",
             ],
         },
     },
@@ -83,13 +84,7 @@ virtual_machines = {
             "harddrive_file": "ubuntu-base.qcow2",
             "cpu_args": [
                 "host",
-                # hide kvm, to workaround nvidia driver blocking VMs
-                # "kvm=off",
-                # "hv_vendor_id=0",
-                # "hv_passthrough",
-                # "-hypervisor",
-                # "level=35",
-                "+vmx,guest-phys-bits=39",
+                "guest-phys-bits=39",
             ],
         },
     },
