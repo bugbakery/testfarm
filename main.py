@@ -1,6 +1,8 @@
 import argparse
 from contextlib import ExitStack
+from pathlib import PosixPath
 import sys
+import time
 
 from qemu import QemuVm
 from virtual_machines import use_mac_address_from_pool, virtual_machines
@@ -20,8 +22,10 @@ if __name__ == "__main__":
     parser.add_argument("--vnc", action="store_true")
     parser.add_argument("--no-rdp", action="store_true")
     parser.add_argument("--no-ssh", action="store_true")
-    parser.add_argument("--edit-base-image", action="store_true")
     parser.add_argument("--skip-boot-check", action="store_true")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("--edit-base-image", action="store_true")
+    group.add_argument("--session")
     parser.add_argument("-c", "--command")
     args = parser.parse_args()
     virtual_machine_spec = virtual_machines[args.vm]
@@ -48,11 +52,37 @@ if __name__ == "__main__":
             mac, ip = stack.enter_context(use_mac_address_from_pool(virtual_machine_spec["host"]))
             virtual_machine_spec["wireguard"] = ip
 
+            if args.session:
+                base_image = PosixPath(virtual_machine_spec["vm_config"]["harddrive_file"])
+                session_file = f"sessions/{args.vm}.{args.session}.qcow2"
+                host_conn.run(f"""
+                    if [ ! -f '{session_file}' ]; then
+                        echo "-> Creating new session..."
+                        qemu-img create -f qcow2 -b "$(realpath --relative-to="$(dirname '{session_file}')" '{base_image}')" -F qcow2 '{session_file}'
+                    else
+                        echo "-> Resuming session from file '{session_file}'"
+                    fi
+                """)
+                vm_config["harddrive_file"] = session_file
+
+            if args.edit_base_image:
+                base_image = PosixPath(virtual_machine_spec["vm_config"]["harddrive_file"])
+                new_base_image = base_image.with_stem(f"{base_image.stem.split('@')[0]}@{int(time.time())}")
+                host_conn.run(f"""
+                    qemu-img create -f qcow2 -b "$(realpath --relative-to="$(dirname '{new_base_image}')" '{base_image}')" -F qcow2 '{new_base_image}'
+                """)
+                vm_config["harddrive_file"] = new_base_image
+
+                def set_head_image_symlink():
+                    host_conn.run(f"ln -sf '{new_base_image.name}' '{base_image}'")
+
+                stack.callback(set_head_image_symlink)
+
             vm = QemuVm(
                 **vm_config,
                 memory="6G",
                 cores=4,
-                ephemeral=not args.edit_base_image,
+                ephemeral=not args.edit_base_image and not args.session,
                 vnc_display=0 if args.vnc else None,
                 pci_devices=devices,
                 mac_address=mac,

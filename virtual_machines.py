@@ -97,7 +97,7 @@ virtual_machines = {
         "password": "admin",
         "available_devices": intel_devices,
         "vm_config": {
-            "harddrive_file": "win11-nvidia-main.qcow2",
+            "harddrive_file": "virtual-drives/win11/win11-main@HEAD.qcow2",
             "cpu_args": [
                 "host",
                 # hide kvm, to workaround nvidia driver blocking VMs
@@ -118,7 +118,7 @@ virtual_machines = {
         "password": "admin",
         "available_devices": intel_devices,
         "vm_config": {
-            "harddrive_file": "ubuntu-base.qcow2",
+            "harddrive_file": "virtual-drives/ubuntu/ubuntu-main@HEAD.qcow2",
             "cpu_args": [
                 "host",
                 "guest-phys-bits=41",
