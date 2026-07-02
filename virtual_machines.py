@@ -13,7 +13,7 @@ intel_devices = {
             id="hostpci0",
             bus="pci.0",
             addr="02.0", # has to use this address to prevent errors
-            romfile="ARL_MTL_GOPv22_igd.rom",
+            romfile="firmware/ARL_MTL_GOPv22_igd.rom",
         )
     ],
     "gtx780": [
