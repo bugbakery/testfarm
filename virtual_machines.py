@@ -93,7 +93,7 @@ virtual_machines = {
     "win11+intel": {
         "host": "desktop-intel",
         "os": "windows",
-        "user": "admin",
+        "user": "bugbakery",
         "password": "admin",
         "available_devices": intel_devices,
         "vm_config": {
