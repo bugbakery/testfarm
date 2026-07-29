@@ -5,6 +5,7 @@ import glob
 import os
 from pathlib import Path
 import sys
+import subprocess
 import traceback
 from urllib.parse import quote, urlencode
 
@@ -62,8 +63,20 @@ def open_rdp(virtual_machine_spec: dict, rdp_port: int, verbose: bool):
             f"open 'rdp://{urlencode(args, quote_via=quote)}'",
             hide="out",
         )
+    elif sys.platform == "linux":
+        print("-> Waiting for RDP to become available...")
+        wait_for_port(virtual_machine_spec, 3389)
+
+        password = virtual_machine_spec["password"]
+        user = virtual_machine_spec["user"]
+        print(f"-> Launching RDP client... (password is '{password}')")
+
+        subprocess.Popen(
+            ["xfreerdp", "/v:localhost:3389", f"/u:{user}", "/d:", f"/p:{password}"],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+        )
     else:
-        print("-> Auto open RDP is currently only supported on macOS")
+        print("-> Auto open RDP is currently only supported on macOS or linux")
 
 
 class Repl(cmd.Cmd):
