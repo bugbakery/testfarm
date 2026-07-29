@@ -145,6 +145,15 @@ The main image may get new versions all the time, this is the setup to bootstrap
 - install all missing driver using windows update
 - on intel host:
     - install intel npu driver
+- edit OpenSSH firewall rules
+    - open Windows Defender Firewall with Advanced Security
+    - Inbound Rules
+    - select "OpenSSH SSH Server (sshd)" -> "Advanced"
+    - enable `Public` and `Domain` profiles
+- install git
+    ```
+    winget install --id Git.Git -e --source winget
+    ```
 - restart
 - cleanly shut down vm
 
